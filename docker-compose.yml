@@ -1,0 +1,85 @@
+version: "3.8"
+services:
+  #PHP Service
+  pksf:
+    build:
+      args:
+        user: pksf
+        uid: 1000
+      context: .
+      dockerfile: .docker/Dockerfile
+    image: pksf
+    restart: unless-stopped
+    working_dir: /var/www/
+    tty: true
+    environment:
+      SERVICE_NAME: app
+      SERVICE_TAGS: dev
+    volumes:
+      - ./:/var/www
+      - ./.docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - pksf_network
+
+ #MySQL Service
+  pksf_db:
+    image: mysql:8.0
+    container_name: pksf_db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    volumes:
+      - pksf_mysql_data:/var/lib/mysql
+    networks:
+      - pksf_network
+
+  redis:
+      image: redis:7.0-alpine
+      ports:
+          - "6379:6379"
+      restart: always
+  #Nginx Service
+  pksf_nginx:
+    image: nginx:alpine
+    container_name: pksf_nginx
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "4001:80"
+      - "4434:443"
+    volumes:
+      - ./:/var/www
+      - ./.docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - pksf_network
+  # phpmyadmin service
+  pksf_phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: unless-stopped
+    container_name: pksf_phpmyadmin
+    depends_on:
+      - pksf_db
+    ports:
+      - "4002:80"
+    environment:
+      PMA_HOST: pksf_db
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - pksf_network
+
+
+#Docker Networks
+networks:
+  pksf_network:
+    driver: bridge
+
+#Volumes
+volumes:
+  pksf_mysql_data:
